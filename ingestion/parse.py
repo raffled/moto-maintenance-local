@@ -99,7 +99,7 @@ _HEADER_LEFT  = re.compile(r"^(\d+)\s+(.+)$")
 _HEADER_RIGHT = re.compile(r"^(.+)\s+(\d+)$")
 
 # Section heading: "7.2" or "18.4.15" at start of a line
-_SECTION_RE = re.compile(r"^(\d+(?:\.\d+)+)\s", re.MULTILINE)
+_SECTION_RE = re.compile(r"^(\d+(?:\.\d+)+)\s+[A-Z]", re.MULTILINE)
 
 # Figure reference codes embedded in text (e.g. W00322-10, V01736-10)
 _FIGURE_REF = re.compile(r"\b([A-Z]\d{5}-\d{2})\b")
