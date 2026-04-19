@@ -3,10 +3,12 @@
 A Python-based AI agent for planning motorcycle repairs and upgrades. Upload a PDF service manual, ask a question about a procedure, and get a fully sequenced plan with torque specifications and reference images — including all prerequisite steps pulled from other chapters.
 
 ## Motorcycles
-
-| Year | Make | Model | Manual |
-|------|------|-------|--------|
-| | | | |
+Planned motorycles (based on what's in my garage and what I have PDF service manuals for):
+| Year | Make | Model |
+|------|------|-------|
+| 2024| Husqvarna | Norden 901 Expectition 
+| 2025| Husqvarna | FE501s
+| 2023| Royal Enfield | Hunter 350
 
 ## Architecture
 ![Architecture Diagram](img/Motorcycle%20Maintenance%20Agent%20%E2%80%94%20Conceptual%20Architecture.png)
