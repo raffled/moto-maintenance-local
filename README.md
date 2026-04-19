@@ -18,11 +18,22 @@ Planned motorycles (based on what's in my garage and what I have PDF service man
 
 Service manuals are chunked by TOC section rather than fixed token windows. This preserves procedural coherence and maps naturally to how technicians reference the manual.
 
+Chunks follow a three-level hierarchy driven by the manual's own structure:
+
+```
+Chapter  (e.g. 7 — Handlebar, controls)
+└── Section  (e.g. 7.2 — Adjusting the handlebar position)
+    └── Phase  (Preparatory work | Main work | Reworking)
+```
+
+Roughly 32% of sections contain multiple procedure phases under a single section number. The parser splits these on the manual's own phase headers rather than using arbitrary token windows.
+
 Each chunk stores:
-- Section title and hierarchy (e.g. `Chassis > Rear Suspension > Removal`)
+- Chapter number and title, section number, phase label
 - Full text content
-- Extracted images and tables with their positions in the section
-- Cross-references to other sections (e.g. "See *Body Panel Removal*, Chapter 4")
+- Extracted torque specifications (bolt size, Nm, ft·lbf, adhesive notes)
+- Embedded procedure images (raw bytes) keyed by figure reference code
+- Cross-references to other sections
 
 Cross-references are resolved at ingestion time and stored as explicit dependency edges, enabling the agent to retrieve the full prerequisite chain for any procedure.
 
