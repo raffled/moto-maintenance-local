@@ -207,5 +207,8 @@ marimo/_lsp/
 __marimo__/
 
 # Project-specific
-manuals/
-data/
+manuals/*
+data/*
+
+!manuals/README.md
+!data/README.md
