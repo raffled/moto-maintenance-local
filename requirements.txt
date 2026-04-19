@@ -1,0 +1,10 @@
+# Application dependencies
+anthropic==0.96.0
+chromadb==1.5.8
+openai==2.32.0
+pypdf==6.10.2
+python-dotenv==1.2.2
+
+# Dev / research
+jupyterlab==4.5.6
+ipykernel==7.2.0
