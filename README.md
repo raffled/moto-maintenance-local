@@ -9,7 +9,8 @@ A Python-based AI agent for planning motorcycle repairs and upgrades. Upload a P
 | | | | |
 
 ## Architecture
-![Architecture Diagram](img/Motorcycle Maintenance Agent — Conceptual Architecture.png)
+![Architecture Diagram](img/Motorcycle%20Maintenance%20Agent%20%E2%80%94%20Conceptual%20Architecture.png)
+
 
 ### PDF Ingestion Pipeline
 
