@@ -18,6 +18,7 @@ from typing import Optional
 import chromadb
 from openai import OpenAI
 
+from ingestion.crossref import annotate_chunks
 from ingestion.images import save_images
 from ingestion.parse import ParsedPage, TorqueSpec, _extract_torque_specs, _FIGURE_REF, parse_manual, parse_toc
 import pypdf
@@ -47,6 +48,8 @@ class Chunk:
     figure_refs: list[str]
     page_nums: list[int]
     image_paths: list[str] = field(default_factory=list)
+    prerequisites: list[str] = field(default_factory=list)
+    references: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +225,8 @@ def _chroma_metadata(chunk: Chunk) -> dict:
         "torque_specs":  json.dumps(chunk.torque_specs),
         "page_nums":     json.dumps(chunk.page_nums),
         "image_paths":   json.dumps(chunk.image_paths),
+        "prerequisites": json.dumps(chunk.prerequisites),
+        "references":    json.dumps(chunk.references),
     }
 
 
@@ -275,6 +280,11 @@ def index_manual(
     for chunk in chunks:
         for pn in chunk.page_nums:
             chunk.image_paths.extend(page_images.get(pn, []))
+
+    annotate_chunks(chunks, toc)
+    prereq_count = sum(len(c.prerequisites) for c in chunks)
+    ref_count    = sum(len(c.references) for c in chunks)
+    print(f"  {prereq_count} prerequisites, {ref_count} resolved references annotated")
 
     print(f"Embedding chunks ...")
     openai_client = OpenAI()

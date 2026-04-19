@@ -18,6 +18,7 @@ import pypdf
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from ingestion.crossref import annotate_chunks
 from ingestion.index import build_chunks
 from ingestion.parse import parse_manual, parse_toc
 
@@ -103,6 +104,7 @@ def test_chunks(pages, toc):
     print("\n── Chunks ─────────────────────────────────────────────")
 
     chunks = build_chunks(pages, toc, "FE_501s_2026")
+    annotate_chunks(chunks, toc)
 
     check("Chunk count",
           550 <= len(chunks) <= 650,
@@ -145,6 +147,23 @@ def test_chunks(pages, toc):
     check("Preparatory-phase chunks present",
           phases["preparatory"] >= 60,
           f"got {phases['preparatory']}")
+
+    # Cross-reference annotations
+    with_prereqs = [c for c in chunks if c.prerequisites]
+    check("Prerequisites extracted",
+          len(with_prereqs) >= 25,
+          f"got {len(with_prereqs)} chunks with prerequisites")
+
+    with_refs = [c for c in chunks if c.references]
+    check("Cross-references extracted",
+          len(with_refs) >= 2,
+          f"got {len(with_refs)} chunks with (see ...) references")
+
+    # Section 18.5.7 should have both a prerequisite and a reference
+    c18 = next((c for c in chunks if c.section == "18.5.7"), None)
+    check("Section 18.5.7 has prerequisite and reference",
+          c18 is not None and bool(c18.prerequisites) and bool(c18.references),
+          f"prerequisites={getattr(c18, 'prerequisites', None)}, references={getattr(c18, 'references', None)}")
 
     return chunks
 
