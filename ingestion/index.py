@@ -242,12 +242,16 @@ def upsert_chunks(
 def index_manual(
     pdf_path: str | Path,
     db_path: str | Path = "data/chroma",
+    reset: bool = False,
 ) -> int:
     """
     Parse, chunk, embed, and index a single manual PDF.
     Returns the number of chunks written.
+
+    reset=True drops and recreates the collection before indexing — use this
+    after any chunking or parsing changes to avoid stale chunks accumulating.
     """
-    pdf_path   = Path(pdf_path)
+    pdf_path    = Path(pdf_path)
     manual_stem = pdf_path.stem
 
     print(f"Parsing {pdf_path.name} ...")
@@ -265,6 +269,14 @@ def index_manual(
 
     print(f"Writing to ChromaDB at {db_path} ...")
     chroma = chromadb.PersistentClient(path=str(db_path))
+
+    if reset:
+        try:
+            chroma.delete_collection(COLLECTION)
+            print(f"  Collection '{COLLECTION}' cleared.")
+        except Exception:
+            pass  # collection didn't exist yet
+
     collection = chroma.get_or_create_collection(COLLECTION)
     upsert_chunks(chunks, embeddings, collection)
 
@@ -281,6 +293,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Index a repair manual PDF.")
     parser.add_argument("manual", help="Path to the PDF file")
     parser.add_argument("--db", default="data/chroma", help="ChromaDB directory")
+    parser.add_argument("--reset", action="store_true",
+                        help="Drop and recreate the collection before indexing")
     args = parser.parse_args()
 
-    index_manual(args.manual, args.db)
+    index_manual(args.manual, args.db, reset=args.reset)

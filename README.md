@@ -113,8 +113,19 @@ ANTHROPIC_API_KEY=...
 ## Ingesting a Manual
 
 ```bash
-python ingestion/parse.py --manual manuals/your_manual.pdf
-python ingestion/index.py
+python ingestion/index.py manuals/your_manual.pdf
+```
+
+Use `--reset` to drop and rebuild the collection from scratch — required after any changes to chunking or parsing logic, since `upsert` leaves stale chunks from previous runs in place:
+
+```bash
+python ingestion/index.py manuals/your_manual.pdf --reset
+```
+
+Run the smoke test after re-indexing to confirm everything is healthy:
+
+```bash
+python smoke_test.py
 ```
 
 This extracts sections, resolves cross-references, embeds chunks, and loads them into the local vector store.
