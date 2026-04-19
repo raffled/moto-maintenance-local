@@ -123,10 +123,17 @@ _LICENSE_RE = re.compile(
     re.DOTALL,
 )
 
+# Inline diagram reference markers — a letter sequence ending in lowercase
+# immediately followed by 1-2 uppercase letters OR digits, at a word boundary.
+# Matches: screws1 → screws (1), ofA → of (A), distanceA → distance (A)
+# Does NOT match: M8 (ends in uppercase), FE450 (ends in uppercase), WARNING (no marker)
+_INLINE_REF_RE = re.compile(r"([a-zA-Z]+[a-z])([A-Z]{1,2}|\d+)\b")
+
 
 def _clean_text(text: str) -> str:
-    """Remove license watermark and normalize whitespace."""
+    """Remove license watermark, expand inline diagram refs, normalize whitespace."""
     text = _LICENSE_RE.sub("", text)
+    text = _INLINE_REF_RE.sub(r"\1 (\2)", text)
     # Collapse runs of blank lines to a single blank
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
