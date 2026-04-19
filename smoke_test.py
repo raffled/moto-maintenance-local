@@ -168,6 +168,21 @@ def test_retrieval():
           count >= 500,
           f"got {count} — run `python ingestion/index.py <pdf>` to build")
 
+    peek = col.get(limit=1, include=["metadatas"])["metadatas"]
+    check("image_paths field present in metadata",
+          bool(peek) and "image_paths" in peek[0],
+          "re-index with --reset to populate image metadata")
+
+    # At least some chunks should have images linked (pages with diagrams)
+    sample = col.get(limit=200, include=["metadatas"])["metadatas"]
+    import json as _json
+    chunks_with_images = sum(
+        1 for m in sample if _json.loads(m.get("image_paths", "[]"))
+    )
+    check("Some chunks have linked images",
+          chunks_with_images > 0,
+          f"0 of {len(sample)} sampled chunks have images — re-index with --reset")
+
     # Semantic retrieval spot-checks — expected section must appear in top 3
     client = OpenAI()
 

@@ -12,12 +12,14 @@ Output per page:
   images        : list of {key, data: bytes, width, height}
 """
 
+import io
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 import pypdf
+from PIL import Image
 
 
 # ---------------------------------------------------------------------------
@@ -36,9 +38,10 @@ class TorqueSpec:
 @dataclass
 class PageImage:
     key: str                # PDF XObject key, e.g. "/IMMtxAzPXR"
-    data: bytes
+    data: bytes             # JPEG bytes for JPEG images; PNG bytes for all others
     width: int
     height: int
+    format: str = "JPEG"    # "JPEG" or "PNG"
 
 
 @dataclass
@@ -180,18 +183,36 @@ def _extract_torque_specs(text: str) -> list[TorqueSpec]:
     return specs
 
 
+_MIN_IMAGE_DIM = 100  # skip icons and decorative elements smaller than this
+
+
 def _extract_images(page: pypdf.PageObject) -> list[PageImage]:
+    """
+    Extract images in content-stream order (preserves visual/reference ordering).
+    Requires Pillow. Images smaller than _MIN_IMAGE_DIM on either side are skipped.
+    """
     images = []
-    resources = page.get("/Resources", {})
-    xobjects = resources.get("/XObject", {})
-    for key, obj in xobjects.items():
-        if obj.get("/Subtype") != "/Image":
-            continue
+    for img_file in page.images:
         try:
-            data = obj.get_data()
-            width = int(obj.get("/Width", 0))
-            height = int(obj.get("/Height", 0))
-            images.append(PageImage(key=key, data=data, width=width, height=height))
+            pil = img_file.image
+            if pil.width < _MIN_IMAGE_DIM or pil.height < _MIN_IMAGE_DIM:
+                continue
+            orig_fmt = (pil.format or "").upper()
+            if orig_fmt == "JPEG":
+                data = img_file.data
+                fmt = "JPEG"
+            else:
+                buf = io.BytesIO()
+                pil.save(buf, format="PNG")
+                data = buf.getvalue()
+                fmt = "PNG"
+            images.append(PageImage(
+                key=img_file.name,
+                data=data,
+                width=pil.width,
+                height=pil.height,
+                format=fmt,
+            ))
         except Exception:
             continue
     return images

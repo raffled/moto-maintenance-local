@@ -11,13 +11,14 @@ to Vertex AI Text Embeddings API — the ChromaDB interface stays the same.
 
 import json
 import re
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Optional
 
 import chromadb
 from openai import OpenAI
 
+from ingestion.images import save_images
 from ingestion.parse import ParsedPage, TorqueSpec, _extract_torque_specs, _FIGURE_REF, parse_manual, parse_toc
 import pypdf
 
@@ -45,6 +46,7 @@ class Chunk:
     torque_specs: list[dict]  # serialised TorqueSpec dicts
     figure_refs: list[str]
     page_nums: list[int]
+    image_paths: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +221,7 @@ def _chroma_metadata(chunk: Chunk) -> dict:
         "figure_refs":   json.dumps(chunk.figure_refs),
         "torque_specs":  json.dumps(chunk.torque_specs),
         "page_nums":     json.dumps(chunk.page_nums),
+        "image_paths":   json.dumps(chunk.image_paths),
     }
 
 
@@ -253,15 +256,25 @@ def index_manual(
     """
     pdf_path    = Path(pdf_path)
     manual_stem = pdf_path.stem
+    images_dir  = Path(db_path).parent / "images"
 
     print(f"Parsing {pdf_path.name} ...")
-    pages = parse_manual(pdf_path, extract_images=False)
+    pages = parse_manual(pdf_path, extract_images=True)
     toc   = parse_toc(pypdf.PdfReader(str(pdf_path)))
 
     print(f"  {len(pages)} pages parsed, {len(toc)} TOC entries")
 
     chunks = build_chunks(pages, toc, manual_stem)
     print(f"  {len(chunks)} chunks built")
+
+    print(f"Saving images to {images_dir} ...")
+    page_images = save_images(pages, manual_stem, images_dir)
+    total_imgs  = sum(len(v) for v in page_images.values())
+    print(f"  {total_imgs} images saved across {len(page_images)} pages")
+
+    for chunk in chunks:
+        for pn in chunk.page_nums:
+            chunk.image_paths.extend(page_images.get(pn, []))
 
     print(f"Embedding chunks ...")
     openai_client = OpenAI()
