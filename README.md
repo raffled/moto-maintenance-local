@@ -44,14 +44,14 @@ Cross-references are resolved at ingestion time and stored as explicit dependenc
 
 ### Dependency-Aware Retrieval
 
-When planning a multi-step procedure, the agent walks the dependency graph to determine the correct execution order before generating the plan. For example, removing the rear suspension requires:
+Retrieval runs in two phases:
 
-1. Body panel removal (Chapter N)
-2. Exhaust removal (Chapter N)
-3. Rear wheel removal (Chapter N)
-4. Rear suspension removal (Chapter N)
+1. **Semantic search** — the query is embedded with `text-embedding-3-small` and the top-k matching chunks are fetched from ChromaDB.
+2. **Dependency walk** — any `preparatory` chunk in the seed set has its `references` list followed recursively (BFS). Referenced sections are fetched by exact section number and added to the result set with an incremented `depth`.
 
-The retrieval layer surfaces all dependent sections so the agent has full context before sequencing steps.
+Results are sorted with the deepest prerequisites first so the planner receives chunks in the correct procedural sequence. For example, querying "disassembling the fork cartridge" (section 6.12) automatically surfaces sections 6.10 and 6.11 as depth-1 prerequisites before the target section.
+
+Image paths are deduplicated across the full result set at retrieval time — pages that span section boundaries would otherwise contribute the same images to multiple chunks.
 
 ### Agent
 
@@ -96,7 +96,7 @@ moto-maintenance/
 │   ├── crossref.py     # Detect and resolve cross-references between sections
 │   └── index.py        # Embed chunks and load into vector store
 ├── agent/              # Claude API integration and planning logic
-│   ├── retrieval.py    # Dependency-aware chunk retrieval
+│   ├── retrieval.py    # Semantic search + BFS dependency walk over prerequisite graph
 │   └── planner.py      # Step sequencing and annotation
 ├── ui/                 # FastAPI backend + frontend
 │   ├── main.py
@@ -157,10 +157,11 @@ Open `http://localhost:8000` and ask questions like:
 
 ## Roadmap
 
-- [ ] PDF ingestion pipeline (parse, chunk by section, extract images/tables)
-- [ ] Cross-reference detection and dependency graph
-- [ ] Vector store setup (ChromaDB)
-- [ ] Claude API integration and planner
+- [x] PDF ingestion pipeline (parse, chunk by section, extract images/tables)
+- [x] Cross-reference detection and dependency graph
+- [x] Vector store setup (ChromaDB)
+- [x] Dependency-aware retrieval (`agent/retrieval.py`)
+- [ ] Claude API planner (`agent/planner.py`)
 - [ ] FastAPI backend
 - [ ] Web UI with inline image/table rendering
 - [ ] Cloud migration: Cloud Storage + Vertex AI Vector Search + Cloud Run

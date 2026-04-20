@@ -21,13 +21,16 @@ from openai import OpenAI
 from ingestion.crossref import annotate_chunks
 from ingestion.index import build_chunks
 from ingestion.parse import parse_manual, parse_toc
+from agent.retrieval import retrieve, open_collection
+from pathlib import Path
 
 load_dotenv()
 
-PDF        = "manuals/FE_501s_2026_US_en_Bundle_RM_069969-000001_05sq_m1du.pdf"
-DB_PATH    = "data/chroma"
-COLLECTION = "manuals"
-EMBED_MODEL = "text-embedding-3-small"
+PDF          = "manuals/FE_501s_2026_US_en_Bundle_RM_069969-000001_05sq_m1du.pdf"
+MANUAL_STEM  = Path(PDF).stem
+DB_PATH      = "data/chroma"
+COLLECTION   = "manuals"
+EMBED_MODEL  = "text-embedding-3-small"
 
 PASS = "\033[32m✓\033[0m"
 FAIL = "\033[31m✗\033[0m"
@@ -103,7 +106,7 @@ def test_parse(pages, toc):
 def test_chunks(pages, toc):
     print("\n── Chunks ─────────────────────────────────────────────")
 
-    chunks = build_chunks(pages, toc, "FE_501s_2026")
+    chunks = build_chunks(pages, toc, MANUAL_STEM)
     annotate_chunks(chunks, toc)
 
     check("Chunk count",
@@ -227,6 +230,61 @@ def test_retrieval():
 
 
 # ---------------------------------------------------------------------------
+# 4. Dependency-aware retrieval (agent/retrieval.py)
+# ---------------------------------------------------------------------------
+
+def test_dependency_retrieval():
+    print("\n── Dependency Retrieval ───────────────────────────────")
+
+    try:
+        col    = open_collection(DB_PATH)
+        client = OpenAI()
+    except Exception as e:
+        check("open_collection succeeded", False, str(e))
+        return
+
+    # Query that should hit a preparatory chunk with references
+    # Section 6.12 preparatory references 6.10 and 6.11
+    chunks = retrieve(
+        "disassembling the fork cartridge",
+        col, client,
+        manual=MANUAL_STEM,
+        n_results=5,
+    )
+
+    check("retrieve() returns at least one chunk",
+          len(chunks) >= 1,
+          f"got {len(chunks)}")
+
+    sections_returned = {c.section for c in chunks}
+    check("Target section 6.12 in results",
+          "6.12" in sections_returned,
+          f"sections returned: {sorted(sections_returned)}")
+
+    depths = [c.depth for c in chunks]
+    check("Dependency walk fired (depth > 0 chunk present)",
+          any(d > 0 for d in depths),
+          f"all chunks at depth 0 — no prerequisites fetched")
+
+    prereq_sections = {c.section for c in chunks if c.depth > 0}
+    check("Prerequisites include section 6.10 or 6.11",
+          bool(prereq_sections & {"6.10", "6.11"}),
+          f"prerequisite sections: {sorted(prereq_sections)}")
+
+    # Prerequisites must come first in the returned list
+    ordered_depths = [c.depth for c in chunks]
+    check("Result ordered with deepest prerequisites first",
+          ordered_depths == sorted(ordered_depths, reverse=True),
+          f"depth sequence: {ordered_depths}")
+
+    # Image paths must be globally deduplicated across the result set
+    all_paths = [p for c in chunks for p in c.image_paths]
+    check("Image paths deduplicated across result set",
+          len(all_paths) == len(set(all_paths)),
+          f"{len(all_paths) - len(set(all_paths))} duplicate(s) found")
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -249,6 +307,7 @@ def main():
     test_parse(pages, toc)
     test_chunks(pages, toc)
     test_retrieval()
+    test_dependency_retrieval()
 
     passed = sum(1 for ok, _ in results if ok)
     failed = sum(1 for ok, _ in results if not ok)
