@@ -32,8 +32,8 @@ Each chunk stores:
 - Chapter number and title, section number, phase label
 - Full text content
 - Extracted torque specifications (bolt size, Nm, ft·lbf, adhesive notes)
-- Embedded procedure images (raw bytes) keyed by figure reference code
-- Cross-references to other sections
+- Procedure images saved to `data/images/` and linked by file path, in content-stream order
+- Resolved cross-references to prerequisite sections (from `(p. NN)` citations in Preparatory work phases)
 
 Cross-references are resolved at ingestion time and stored as explicit dependency edges, enabling the agent to retrieve the full prerequisite chain for any procedure.
 
@@ -84,7 +84,8 @@ The ingestion pipeline and agent logic are environment-agnostic; only the storag
 moto-maintenance/
 ├── manuals/            # Raw PDF service manuals
 ├── ingestion/          # PDF parsing, chunking, embedding, indexing
-│   ├── parse.py        # Extract text, images, tables by TOC section
+│   ├── parse.py        # Extract text, images, torque specs by TOC section
+│   ├── images.py       # Save extracted images to disk, build page→path index
 │   ├── crossref.py     # Detect and resolve cross-references between sections
 │   └── index.py        # Embed chunks and load into vector store
 ├── agent/              # Claude API integration and planning logic

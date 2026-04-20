@@ -155,15 +155,19 @@ def test_chunks(pages, toc):
           f"got {len(with_prereqs)} chunks with prerequisites")
 
     with_refs = [c for c in chunks if c.references]
-    check("Cross-references extracted",
-          len(with_refs) >= 2,
-          f"got {len(with_refs)} chunks with (see ...) references")
+    check("Page references extracted (preparatory only)",
+          len(with_refs) >= 60,
+          f"got {len(with_refs)} preparatory chunks with page references")
 
-    # Section 18.5.7 should have both a prerequisite and a reference
-    c18 = next((c for c in chunks if c.section == "18.5.7"), None)
-    check("Section 18.5.7 has prerequisite and reference",
-          c18 is not None and bool(c18.prerequisites) and bool(c18.references),
-          f"prerequisites={getattr(c18, 'prerequisites', None)}, references={getattr(c18, 'references', None)}")
+    check("Only preparatory chunks have references",
+          all(c.phase == "preparatory" for c in with_refs),
+          "non-preparatory chunk has references (tool-page false positive)")
+
+    # 6.12 preparatory should reference both 6.10 and 6.11
+    c612 = next((c for c in chunks if c.section == "6.12" and c.phase == "preparatory"), None)
+    check("Section 6.12 preparatory references 6.10 and 6.11",
+          c612 is not None and "6.10" in c612.references and "6.11" in c612.references,
+          f"got {getattr(c612, 'references', None)}")
 
     return chunks
 
