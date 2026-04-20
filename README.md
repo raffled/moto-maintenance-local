@@ -15,6 +15,7 @@ Planned motorycles (based on what's in my garage and what I have PDF service man
 
 
 ### PDF Ingestion Pipeline
+#### Ingestion Process
 ![Ingestion Pipeline](img/Ingestion%20pipeline%20architecture.png)
 
 Service manuals are chunked by TOC section rather than fixed token windows. This preserves procedural coherence and maps naturally to how technicians reference the manual.
@@ -29,7 +30,8 @@ Chapter  (e.g. 7 — Handlebar, controls)
 
 Roughly 32% of sections contain multiple procedure phases under a single section number. The parser splits these on the manual's own phase headers rather than using arbitrary token windows.
 
-Each chunk stores:
+#### Chunk Data Model
+
 ![Chunk Data Model](img/Chunk%20data%20model%20and%20dependency%20graph.png)
 
 - Chapter number and title, section number, phase label
@@ -54,6 +56,7 @@ The retrieval layer surfaces all dependent sections so the agent has full contex
 ### Agent
 
 ![Runtime](img/Runtime%20query%20flow.png)
+
 Built directly on the Claude API (no agent framework). Given a repair or upgrade goal, the agent:
 1. Identifies the target procedure and retrieves its section chunk
 2. Traverses the dependency graph to collect all prerequisite sections
