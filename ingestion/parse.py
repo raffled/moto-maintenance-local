@@ -114,7 +114,7 @@ _FIGURE_REF = re.compile(r"\b([A-Z]\d{5}-\d{2})\b")
 #   [optional Loctite/adhesive line]
 _TORQUE_RE = re.compile(
     r"([^\n]+)\n"               # description
-    r"(M\d+(?:x\d+)?)\s+"       # bolt spec
+    r"(M\d+(?:x[\d.]+)?)\s+"     # bolt spec (x[\d.]+ handles decimal thread pitch e.g. M12x1.5)
     r"(\d+(?:\.\d+)?)\s*Nm\n"   # Nm value
     r"\(\s*(\d+(?:\.\d+)?)\s*ft[⋅·]lbf\)"  # ft·lbf value
     r"(?:\n(Loctite[^\n]+|[A-Z][a-z]+[^\n]{0,40}))?"  # optional note
