@@ -47,11 +47,15 @@ Cross-references are resolved at ingestion time and stored as explicit dependenc
 Retrieval runs in two phases:
 
 1. **Semantic search** — the query is embedded with `text-embedding-3-small` and the top-k matching chunks are fetched from ChromaDB.
-2. **Dependency walk** — any `preparatory` chunk in the seed set has its `references` list followed recursively (BFS). Referenced sections are fetched by exact section number and added to the result set with an incremented `depth`.
+2. **Dependency walk** — any `preparatory` chunk in the seed set has its `references` list followed recursively (breadth-first search, BFS). Referenced sections are fetched by exact section number and added to the result set with an incremented `depth`.
 
 Results are sorted with the deepest prerequisites first so the planner receives chunks in the correct procedural sequence. For example, querying "disassembling the fork cartridge" (section 6.12) automatically surfaces sections 6.10 and 6.11 as depth-1 prerequisites before the target section.
 
 Image paths are deduplicated across the full result set at retrieval time — pages that span section boundaries would otherwise contribute the same images to multiple chunks.
+
+#### Disambiguation
+
+Some queries match procedures in more than one chapter with different assumptions (e.g. "oil and filter change" matches both Ch. 18 — engine assembly with the engine removed, and Ch. 22 — routine maintenance with the engine in the frame). When the seed set spans multiple chapters, the UI surfaces the candidates grouped by chapter and lets the user choose before running the full dependency walk. A second entry point, `retrieve_from_section(section, ...)`, seeds the BFS walk from a known section number rather than an embedding query, scoping the result to the user's chosen context.
 
 ### Agent
 

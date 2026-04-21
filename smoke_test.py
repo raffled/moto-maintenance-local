@@ -21,7 +21,7 @@ from openai import OpenAI
 from ingestion.crossref import annotate_chunks
 from ingestion.index import build_chunks
 from ingestion.parse import parse_manual, parse_toc
-from agent.retrieval import retrieve, open_collection
+from agent.retrieval import retrieve, retrieve_from_section, open_collection
 from pathlib import Path
 
 load_dotenv()
@@ -282,6 +282,30 @@ def test_dependency_retrieval():
     check("Image paths deduplicated across result set",
           len(all_paths) == len(set(all_paths)),
           f"{len(all_paths) - len(set(all_paths))} duplicate(s) found")
+
+    # --- retrieve_from_section ---
+
+    # Oil change query returns both Ch.18 (engine-out) and Ch.22 (maintenance)
+    oil_chunks = retrieve(
+        "oil and filter change", col, client, manual=MANUAL_STEM, n_results=5
+    )
+    seed_chapters = {c.chapter_num for c in oil_chunks if c.depth == 0}
+    check("Disambiguation scenario: oil change seeds span multiple chapters",
+          len(seed_chapters) > 1,
+          f"chapters in seed set: {sorted(seed_chapters)}")
+
+    # After user picks Ch.22, retrieve_from_section scopes the walk correctly
+    scoped = retrieve_from_section("22.3", col, manual=MANUAL_STEM)
+    scoped_chapters = {c.chapter_num for c in scoped}
+    check("retrieve_from_section('22.3') returns chunks",
+          len(scoped) >= 1,
+          f"got {len(scoped)}")
+    check("retrieve_from_section scoped to Ch.22 (no Ch.18 engine content)",
+          18 not in scoped_chapters,
+          f"chapters present: {sorted(scoped_chapters)}")
+    check("retrieve_from_section result ordered correctly",
+          [c.depth for c in scoped] == sorted([c.depth for c in scoped], reverse=True),
+          f"depth sequence: {[c.depth for c in scoped]}")
 
 
 # ---------------------------------------------------------------------------
