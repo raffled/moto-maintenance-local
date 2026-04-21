@@ -68,6 +68,8 @@ Built directly on the Claude API (no agent framework). Given a repair or upgrade
 4. Annotates steps with torque values extracted from the manual
 5. References relevant images and tables inline
 
+The planner (`agent/planner.py`) formats the prerequisite-first chunk list into a labelled context block and calls Claude with a structured system prompt. Torque specs and image paths are pulled directly from chunk metadata — Claude is only responsible for sequencing and prose, not data extraction.
+
 ### Web UI
 
 FastAPI backend serving a lightweight frontend. The UI supports:
@@ -165,7 +167,7 @@ Open `http://localhost:8000` and ask questions like:
 - [x] Cross-reference detection and dependency graph
 - [x] Vector store setup (ChromaDB)
 - [x] Dependency-aware retrieval (`agent/retrieval.py`)
-- [ ] Claude API planner (`agent/planner.py`)
+- [x] Claude API planner (`agent/planner.py`)
 - [ ] FastAPI backend
 - [ ] Web UI with inline image/table rendering
 - [ ] Cloud migration: Cloud Storage + Vertex AI Vector Search + Cloud Run

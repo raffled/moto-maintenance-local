@@ -22,6 +22,7 @@ from ingestion.crossref import annotate_chunks
 from ingestion.index import build_chunks
 from ingestion.parse import parse_manual, parse_toc
 from agent.retrieval import retrieve, retrieve_from_section, open_collection
+from agent.planner import plan, Plan, _build_context, _collect_torque_specs
 from pathlib import Path
 
 load_dotenv()
@@ -309,6 +310,52 @@ def test_dependency_retrieval():
 
 
 # ---------------------------------------------------------------------------
+# 5. Planner (agent/planner.py)
+# ---------------------------------------------------------------------------
+
+def test_planner():
+    print("\n── Planner ────────────────────────────────────────────")
+
+    try:
+        col           = open_collection(DB_PATH)
+        openai_client = OpenAI()
+        claude        = __import__("anthropic").Anthropic()
+    except Exception as e:
+        check("Clients initialised", False, str(e))
+        return
+
+    chunks = retrieve_from_section("7.2", col, manual=MANUAL_STEM)
+    check("Retrieved chunks for planner input",
+          len(chunks) >= 1,
+          f"got {len(chunks)}")
+
+    result = plan("adjust the handlebar position", chunks, claude)
+
+    check("plan() returns a Plan instance",
+          isinstance(result, Plan))
+
+    check("Plan text is non-empty",
+          len(result.text) > 100,
+          f"got {len(result.text)} chars")
+
+    check("Plan covers section 7.2",
+          "7.2" in result.sections_used,
+          f"sections_used: {result.sections_used}")
+
+    check("Plan text mentions torque or Nm",
+          "Nm" in result.text or "torque" in result.text.lower(),
+          "expected torque reference in plan text")
+
+    check("Torque specs passed through to Plan",
+          len(result.torque_specs) >= 1,
+          f"got {len(result.torque_specs)} specs")
+
+    check("plan() with no chunks returns gracefully",
+          plan("anything", [], claude).text != "" and
+          plan("anything", [], claude).sections_used == [])
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -332,6 +379,7 @@ def main():
     test_chunks(pages, toc)
     test_retrieval()
     test_dependency_retrieval()
+    test_planner()
 
     passed = sum(1 for ok, _ in results if ok)
     failed = sum(1 for ok, _ in results if not ok)
