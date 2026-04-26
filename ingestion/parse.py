@@ -65,31 +65,72 @@ _TOC_ENTRY = re.compile(
     r"^(\d+(?:\.\d+)*)\s+(.+?)\s*\.{2,}\s*(\d+)\s*$"
 )
 
+# Matches the start of a wrapped entry, e.g. "18.3.3 Draining the engine oil and"
+# (section number + title start, no dot leaders or page number yet)
+_TOC_ENTRY_START = re.compile(r"^(\d+(?:\.\d+)+)\s+\w")
+
 
 def parse_toc(pdf: pypdf.PdfReader) -> list[dict]:
-    """Return list of {number, title, page} dicts from the Table of Contents."""
+    """Return list of {number, title, page} dicts from the Table of Contents.
+
+    Some entries have titles that wrap to the next line, with the dot leaders
+    and page number on the continuation line.  These are buffered and merged.
+    """
     entries = []
-    in_toc = False
+    in_toc  = False
+    pending = ""   # partial line waiting for its continuation
+
     for page in pdf.pages:
         text = page.extract_text() or ""
         if "Table of contents" in text:
             in_toc = True
         if not in_toc:
             continue
-        # TOC ends when we hit non-TOC content
         if in_toc and "Table of contents" not in text and entries:
-            # Check if this page still looks like a TOC page
             toc_lines = [l for l in text.splitlines() if _TOC_ENTRY.match(l.strip())]
             if not toc_lines:
                 break
+
         for line in text.splitlines():
-            m = _TOC_ENTRY.match(line.strip())
+            stripped = line.strip()
+            if not stripped:
+                pending = ""
+                continue
+
+            # Try matching the line alone first
+            m = _TOC_ENTRY.match(stripped)
             if m:
+                pending = ""
                 entries.append({
                     "number": m.group(1),
-                    "title": m.group(2).strip(),
-                    "page": int(m.group(3)),
+                    "title":  m.group(2).strip(),
+                    "page":   int(m.group(3)),
                 })
+                continue
+
+            # If we have a buffered first line, try merging with this continuation
+            if pending:
+                merged = pending + " " + stripped
+                m = _TOC_ENTRY.match(merged)
+                if m:
+                    entries.append({
+                        "number": m.group(1),
+                        "title":  m.group(2).strip(),
+                        "page":   int(m.group(3)),
+                    })
+                    pending = ""
+                    continue
+                # New section number started before previous resolved — restart buffer
+                if _TOC_ENTRY_START.match(stripped):
+                    pending = stripped
+                else:
+                    pending = merged   # keep accumulating (rare 3-line wrap)
+                continue
+
+            # Start buffering a potential wrapped entry
+            if _TOC_ENTRY_START.match(stripped):
+                pending = stripped
+
     return entries
 
 

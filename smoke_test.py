@@ -64,7 +64,7 @@ def test_parse(pages, toc):
           f"got {len(pages)}")
 
     check("TOC entry count",
-          len(toc) == 254,
+          len(toc) == 350,
           f"got {len(toc)}")
 
     chapters = [p for p in pages if p.chapter_num is not None]
