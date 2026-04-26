@@ -23,6 +23,8 @@ from ingestion.index import build_chunks
 from ingestion.parse import parse_manual, parse_toc
 from agent.retrieval import retrieve, retrieve_from_section, open_collection
 from agent.planner import plan, Plan, _build_context, _collect_torque_specs
+from fastapi.testclient import TestClient
+from ui.main import app as fastapi_app
 from pathlib import Path
 
 load_dotenv()
@@ -356,6 +358,79 @@ def test_planner():
 
 
 # ---------------------------------------------------------------------------
+# 6. API (ui/main.py)
+# ---------------------------------------------------------------------------
+
+def test_api():
+    print("\n── API ────────────────────────────────────────────────")
+
+    client = TestClient(fastapi_app)
+
+    # Unambiguous query → PlanResponse directly (fork cartridge is cleanly Ch.6 only)
+    resp = client.post("/ask", json={"query": "disassemble the fork cartridge"})
+    check("POST /ask 200 for unambiguous query",
+          resp.status_code == 200,
+          f"status {resp.status_code}")
+    body = resp.json()
+    check("Unambiguous /ask returns plan type",
+          body.get("type") == "plan",
+          f"type={body.get('type')}")
+    check("Plan response has non-empty text",
+          len(body.get("text", "")) > 50,
+          f"text length {len(body.get('text', ''))}")
+
+    # Ambiguous query → DisambiguationResponse
+    resp = client.post("/ask", json={"query": "oil and filter change"})
+    check("POST /ask 200 for ambiguous query",
+          resp.status_code == 200,
+          f"status {resp.status_code}")
+    body = resp.json()
+    check("Ambiguous /ask returns disambiguation type",
+          body.get("type") == "disambiguation",
+          f"type={body.get('type')}")
+    check("Disambiguation response has multiple chapter candidates",
+          len(body.get("candidates", [])) > 1,
+          f"candidates: {[c.get('chapter_num') for c in body.get('candidates', [])]}")
+
+    # POST /plan after disambiguation
+    resp = client.post("/plan", json={"query": "change the oil", "section": "22.3"})
+    check("POST /plan 200 for section 22.3",
+          resp.status_code == 200,
+          f"status {resp.status_code}")
+    check("POST /plan returns plan type",
+          resp.json().get("type") == "plan",
+          f"type={resp.json().get('type')}")
+
+    # POST /plan with unknown section → 404
+    resp = client.post("/plan", json={"query": "test", "section": "99.99"})
+    check("POST /plan 404 for unknown section",
+          resp.status_code == 404,
+          f"status {resp.status_code}")
+
+    # GET /images serves a known image file
+    import json as _json
+    col    = open_collection(DB_PATH)
+    sample = col.get(limit=50, include=["metadatas"])["metadatas"]
+    first_image = next(
+        (p for m in sample for p in _json.loads(m.get("image_paths", "[]"))), None
+    )
+    if first_image:
+        relative = str(Path(first_image).relative_to("data/images"))
+        resp = client.get(f"/images/{relative}")
+        check("GET /images serves a known image file",
+              resp.status_code == 200,
+              f"path={relative}, status={resp.status_code}")
+    else:
+        check("GET /images serves a known image file", False, "no images found in sample")
+
+    # GET /images with missing path → 404
+    resp = client.get("/images/nonexistent/file.jpg")
+    check("GET /images 404 for missing file",
+          resp.status_code == 404,
+          f"status {resp.status_code}")
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -380,6 +455,7 @@ def main():
     test_retrieval()
     test_dependency_retrieval()
     test_planner()
+    test_api()
 
     passed = sum(1 for ok, _ in results if ok)
     failed = sum(1 for ok, _ in results if not ok)

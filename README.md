@@ -70,6 +70,22 @@ Built directly on the Claude API (no agent framework). Given a repair or upgrade
 
 The planner (`agent/planner.py`) formats the prerequisite-first chunk list into a labelled context block and calls Claude with a structured system prompt. Torque specs and image paths are pulled directly from chunk metadata — Claude is only responsible for sequencing and prose, not data extraction.
 
+### API
+
+Served by FastAPI (`ui/main.py`). Run with:
+
+```
+uvicorn ui.main:app --reload
+```
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/ask` | Submit a repair query. Returns a `PlanResponse` directly, or a `DisambiguationResponse` if the query matches multiple chapters. |
+| `POST` | `/plan` | Generate a plan from a chosen section after disambiguation. |
+| `GET`  | `/images/{path}` | Serve a diagram image from `data/images/`. |
+
+Interactive docs available at `http://localhost:8000/docs`.
+
 ### Web UI
 
 FastAPI backend serving a lightweight frontend. The UI supports:
@@ -168,6 +184,6 @@ Open `http://localhost:8000` and ask questions like:
 - [x] Vector store setup (ChromaDB)
 - [x] Dependency-aware retrieval (`agent/retrieval.py`)
 - [x] Claude API planner (`agent/planner.py`)
-- [ ] FastAPI backend
+- [x] FastAPI backend (`ui/main.py`)
 - [ ] Web UI with inline image/table rendering
 - [ ] Cloud migration: Cloud Storage + Vertex AI Vector Search + Cloud Run
